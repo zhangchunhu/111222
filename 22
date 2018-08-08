@@ -1,0 +1,35 @@
+#KNN调用
+import numpy as np
+from sklearn import datasets
+iris = datasets.load_iris()
+iris_X = iris.data
+iris_y = iris.target
+np.unique(iris_y)
+
+# Split iris data in train and test data
+# A random permutation, to split the data randomly
+np.random.seed(0)
+# permutation随机生成一个范围内的序列
+indices = np.random.permutation(len(iris_X))
+# 通过随机序列将数据随机进行测试集和训练集的划分
+iris_X_train = iris_X[indices[:-10]]
+iris_y_train = iris_y[indices[:-10]]
+iris_X_test  = iris_X[indices[-10:]]
+iris_y_test  = iris_y[indices[-10:]]
+# Create and fit a nearest-neighbor classifier
+from sklearn.neighbors import KNeighborsClassifier
+knn = KNeighborsClassifier()
+knn.fit(iris_X_train, iris_y_train) 
+str_in = input('请以空格为间隔连续输入一个数组:')
+num = [float(n) for n in str_in.split()]  
+
+g=[num]
+KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+           metric_params=None, n_jobs=1, n_neighbors=5, p=2,
+           weights='uniform')
+
+y_pre_test=knn.predict(g)
+#print (iris_y_test)
+#print(y_pre_test)
+
+print(y_pre_test)
