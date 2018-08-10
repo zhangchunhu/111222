@@ -1,0 +1,119 @@
+import gym
+import numpy as np
+import math
+
+statesAndQ = {}
+
+bucketNumbers = [1,1,6,3]
+
+env = gym.make('CartPole-v0')
+env.reset()
+
+bucketBounds = list(zip(env.observation_space.low, env.observation_space.high))
+bucketBounds[1]=[-0.5,0.5]
+bucketBounds[3] = [-math.radians(50), math.radians(50)]
+
+def learningRule(statesAndQ, reward, discountFactor, observationTuple, tempStates, i_episode):
+    if len(tempStates)>2:
+        #print(tempStates)
+        maximumIndex = np.argmax(statesAndQ[tuple(tempStates[-2])[0]])
+    else:
+        maximumIndex = np.argmax(statesAndQ[tuple(tempStates[-2])[0]])
+    best_q = np.amax(statesAndQ[observationTuple])
+    if i_episode==0:
+        statesAndQ[observationTuple][maximumIndex] += get_learning_rate(i_episode)*(reward + discountFactor*best_q - statesAndQ[observationTuple][maximumIndex])
+    else:
+        statesAndQ[observationTuple][maximumIndex] += get_learning_rate(i_episode-1)*(reward + discountFactor*best_q - statesAndQ[observationTuple][maximumIndex])
+
+    maximum = statesAndQ[observationTuple][maximumIndex]
+
+    i = len(tempStates)-1
+
+    while i>0:
+        statesAndQ[tempStates[i][0]][np.argmax(statesAndQ[tempStates[i][0]])]  += get_learning_rate(i_episode)*(maximum - statesAndQ[tempStates[i][0]][np.argmax(statesAndQ[tempStates[i][0]])])
+        maximum = statesAndQ[tempStates[i][0]][np.argmax(statesAndQ[tempStates[i][0]])]
+        i=i-1
+
+    return statesAndQ
+
+def makeBuckets(state):
+    bucket_indice = []
+    for i in range(len(state)):
+        if state[i] <= bucketBounds[i][0]:
+            bucket_index = 0
+        elif state[i] >= bucketBounds[i][1]:
+            bucket_index = bucketNumbers[i] - 1
+        else:
+            bound_width = bucketBounds[i][1] - bucketBounds[i][0]
+            offset = (bucketNumbers[i]-1)*bucketBounds[i][0]/bound_width
+            scaling = (bucketNumbers[i]-1)/bound_width
+            bucket_index = int(round(scaling*state[i] - offset))
+        bucket_indice.append(bucket_index)
+    return tuple(bucket_indice)
+
+def get_explore_rate(t):
+    #return max(0.01, min(1, 1.0 - math.log10((t+1)/15)))
+    if t>250:
+        return 0
+    else:
+        return max(min(1, 1.0 - math.log10((t+1)/25)), 0.01)
+
+
+def get_learning_rate(t):
+    return max(0.1, min(0.7, 1.0 - math.log10((t+1)/30)))
+
+for i_episode in range(1000):
+    print(get_explore_rate(i_episode))
+    print("learning")
+    print(get_learning_rate(i_episode))
+    observation = env.reset()
+    tempStates = []
+    length = 0
+
+    for i in range(250):
+        env.render()
+        random = np.random.normal(0,1)
+
+        observationTuple = makeBuckets(observation)
+        tempStates.append([observationTuple])
+
+
+        if not observationTuple in statesAndQ:
+            statesAndQ[observationTuple] = [0,0]
+
+        if random>get_explore_rate(i_episode):
+            action = np.argmax(statesAndQ[observationTuple])
+            observation, reward, done, info = env.step(action)
+            observationTuple = makeBuckets(observation)
+            tempStates.append([observationTuple])
+
+            length+=1
+
+            if not observationTuple in statesAndQ:
+                statesAndQ[observationTuple] = [0,0]
+
+            #print(tempStates)
+
+            statesAndQ = learningRule(statesAndQ, reward, 0.9, observationTuple, tempStates, i_episode)
+            length = 0
+            tempStates = []
+
+        else:
+            action = env.action_space.sample()
+            observation, reward, done, info = env.step(action)
+            observationTuple = makeBuckets(observation)
+            tempStates.append([observationTuple])
+
+            if not observationTuple in statesAndQ:
+                statesAndQ[observationTuple] = [0,0]
+
+            statesAndQ = learningRule(statesAndQ, reward, 0.9, observationTuple, tempStates, i_episode)
+            length = 0
+            tempStates = []
+
+        if done:
+            print("Episode finished after {} timesteps".format(i+1))
+            print(i_episode)
+            break
+
+print("rollouts finished")
